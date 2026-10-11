@@ -1339,3 +1339,40 @@ async def test_ubus_bridge_fdb_stale_arp_wired_device_disconnected(
 
     assert devices["aa:bb:cc:dd:ee:01"].connected is False
     assert devices["aa:bb:cc:dd:ee:02"].connected is True
+
+
+@pytest.mark.asyncio
+async def test_ubus_bridge_fdb_unsupported_leaves_stale_arp_connected(
+    ubus_client: UbusClient,
+):
+    """Test that wired devices with STALE ARP remain connected if bridge FDB is unsupported (e.g. OpenWrt 25.x)."""
+    from custom_components.openwrt.api.base import ConnectedDevice
+    from custom_components.openwrt.api.ubus.exceptions import UbusError
+
+    ubus_client.trust_stale_arp = True
+    ubus_client.trust_bridge_fdb = True
+
+    devices = {
+        "aa:bb:cc:dd:ee:01": ConnectedDevice(
+            mac="aa:bb:cc:dd:ee:01",
+            ip="192.168.1.101",
+            interface="br-lan",
+            connected=True,
+            is_wireless=False,
+            neighbor_state="STALE",
+        ),
+    }
+
+    device_status = {"br-lan": {"up": True, "type": "bridge"}}
+
+    async def mock_call(obj, method, params=None):
+        if obj == "network.device" and method == "status":
+            return device_status
+        if obj == "network.device" and method == "fdb":
+            raise UbusError("Command failed: Method not found")
+        return {}
+
+    with patch.object(ubus_client, "_call", side_effect=mock_call):
+        await ubus_client._process_bridge_fdb(devices)
+
+    assert devices["aa:bb:cc:dd:ee:01"].connected is True

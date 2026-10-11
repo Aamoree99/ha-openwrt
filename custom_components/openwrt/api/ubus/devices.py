@@ -432,8 +432,9 @@ class UbusDevicesMixin:
             if not device_status or not isinstance(device_status, dict):
                 return
 
-            # Track which wired MACs appear in any FDB entry.
+            # Track whether at least one FDB query succeeded and which wired MACs appear in any FDB entry.
             # Used to resolve STALE-ARP-only devices when trust_bridge_fdb is set.
+            fdb_query_succeeded = False
             fdb_seen_macs: set[str] = set()
 
             # 2. For each device, fetch its FDB if it's a bridge or has members
@@ -443,6 +444,7 @@ class UbusDevicesMixin:
 
                 try:
                     fdb = await self._call("network.device", "fdb", {"name": dev_name})
+                    fdb_query_succeeded = True
                     if fdb and isinstance(fdb, list):
                         for entry in fdb:
                             mac = entry.get("mac", "").lower()
@@ -476,10 +478,10 @@ class UbusDevicesMixin:
 
             # 3. When trust_bridge_fdb is enabled, a wired device whose only evidence
             # of presence is a STALE ARP entry (not confirmed by any FDB) should be
-            # treated as disconnected.  A STALE entry can linger for minutes after a
-            # device is powered off; the FDB is a more authoritative source for wired
-            # presence.
-            if self.trust_stale_arp:
+            # treated as disconnected, provided the FDB could actually be queried.
+            # If network.device fdb is unsupported (e.g. OpenWrt 25.x) or failed,
+            # we must not mark devices away.
+            if self.trust_stale_arp and fdb_query_succeeded:
                 for mac, dev in devices.items():
                     if (
                         not dev.is_wireless
