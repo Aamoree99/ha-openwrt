@@ -243,15 +243,16 @@ class UbusNetworkMixin:
             except Exception:
                 _LOGGER.debug("iwinfo devices call failed")
 
-            try:
-                ubus_objs = await self._list_objects()
-                for obj in ubus_objs:
-                    if obj.startswith("hostapd."):
-                        h_name = obj.split(".", 1)[1]
-                        if h_name and h_name not in candidates:
-                            candidates.append(h_name)
-            except Exception:
-                pass
+            if self._connected:
+                try:
+                    ubus_objs = await self._list_objects()
+                    for obj in ubus_objs:
+                        if obj.startswith("hostapd."):
+                            h_name = obj.split(".", 1)[1]
+                            if h_name and h_name not in candidates:
+                                candidates.append(h_name)
+                except Exception:
+                    pass
 
             for name in candidates:
                 if skip_iwinfo_info or name in iface_names or name in radio_names:
