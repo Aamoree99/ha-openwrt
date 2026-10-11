@@ -272,12 +272,14 @@ class UbusClient(
                 headers={"Content-Type": "application/json"},
                 ssl=self.verify_ssl if self.use_ssl else False,
             ) as response:
-                if hasattr(response, "raise_for_status"):
-                    res_raise = response.raise_for_status()
+                raise_fn: Any = getattr(response, "raise_for_status", None)
+                if raise_fn is not None:
+                    res_raise = raise_fn()
                     if asyncio.iscoroutine(res_raise):
                         await res_raise
-                if hasattr(response, "json"):
-                    res_json = response.json()
+                json_fn: Any = getattr(response, "json", None)
+                if json_fn is not None:
+                    res_json = json_fn()
                     data = await res_json if asyncio.iscoroutine(res_json) else res_json
                 else:
                     data = {}
@@ -480,12 +482,14 @@ class UbusClient(
                 headers={"Content-Type": "application/json"},
                 ssl=self.verify_ssl if self.use_ssl else False,
             ) as response:
-                if hasattr(response, "raise_for_status"):
-                    res_raise = response.raise_for_status()
+                raise_fn: Any = getattr(response, "raise_for_status", None)
+                if raise_fn is not None:
+                    res_raise = raise_fn()
                     if asyncio.iscoroutine(res_raise):
                         await res_raise
-                if hasattr(response, "json"):
-                    res_json = response.json()
+                json_fn: Any = getattr(response, "json", None)
+                if json_fn is not None:
+                    res_json = json_fn()
                     data = await res_json if asyncio.iscoroutine(res_json) else res_json
                 else:
                     data = {}
