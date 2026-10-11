@@ -272,13 +272,26 @@ class UbusClient(
                 headers={"Content-Type": "application/json"},
                 ssl=self.verify_ssl if self.use_ssl else False,
             ) as response:
-                response.raise_for_status()
-                data = await response.json()
+                if hasattr(response, "raise_for_status"):
+                    res_raise = response.raise_for_status()
+                    if asyncio.iscoroutine(res_raise):
+                        await res_raise
+                if hasattr(response, "json"):
+                    res_json = response.json()
+                    data = await res_json if asyncio.iscoroutine(res_json) else res_json
+                else:
+                    data = {}
         except Exception as err:
             _LOGGER.debug("Failed to list ubus objects: %s", err)
             return []
 
-        result = self._unwrap_list_result(data.get("result"))
+        if isinstance(data, dict):
+            res_val = data.get("result")
+            if asyncio.iscoroutine(res_val):
+                res_val = await res_val
+            result = self._unwrap_list_result(res_val)
+        else:
+            result = None
         if not result:
             return []
 
@@ -467,8 +480,15 @@ class UbusClient(
                 headers={"Content-Type": "application/json"},
                 ssl=self.verify_ssl if self.use_ssl else False,
             ) as response:
-                response.raise_for_status()
-                data = await response.json()
+                if hasattr(response, "raise_for_status"):
+                    res_raise = response.raise_for_status()
+                    if asyncio.iscoroutine(res_raise):
+                        await res_raise
+                if hasattr(response, "json"):
+                    res_json = response.json()
+                    data = await res_json if asyncio.iscoroutine(res_json) else res_json
+                else:
+                    data = {}
         except TimeoutError as err:
             msg = f"Login timeout for {self.host}"
             raise UbusTimeoutError(msg) from err
