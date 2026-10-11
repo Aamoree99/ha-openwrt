@@ -484,6 +484,7 @@ def test_wifi_clients_sensor_stable_id_matching() -> None:
     data = OpenWrtData(
         wireless_interfaces=[wifi_iface],
         connected_devices=[device],
+        all_connected_devices=[device],
     )
 
     mock_coordinator = MagicMock()

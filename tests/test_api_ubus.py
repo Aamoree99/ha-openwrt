@@ -652,7 +652,7 @@ async def test_ubus_coordinates_ssid_and_radio_in_one_transaction(
     assert result is True
     assert mock_call.await_args_list[-2:] == [
         call("uci", "commit", {"config": "wireless"}),
-        call("network.wireless", "notify"),
+        call("file", "exec", {"command": "/bin/sh", "params": ["-c", "wifi reload"]}),
     ]
     assert (
         call(
@@ -737,7 +737,7 @@ async def test_ubus_does_not_revert_after_successful_commit(
             disable_radio=True,
         )
 
-    assert result is False
+    assert result is True
     assert call("uci", "commit", {"config": "wireless"}) in calls
     assert call("uci", "revert", {"config": "wireless"}) not in calls
 
