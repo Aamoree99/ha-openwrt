@@ -62,6 +62,7 @@ class UbusDevicesMixin:
                 pass
 
         # 3. Process wireless associations (iwinfo)
+        scanned_wireless_candidates: set[str] = set()
         if wireless_ifaces:
             for wifi_iface in wireless_ifaces:
                 candidate_names = [wifi_iface.name]
@@ -107,43 +108,8 @@ class UbusDevicesMixin:
                     except UbusError:
                         pass
 
-                if not found_assoc and (
-                    self.coordinator
-                    and self.coordinator.data
-                    and self.coordinator.data.all_connected_devices
-                ):
-                    for prev_dev in self.coordinator.data.all_connected_devices:
-                        if (
-                            prev_dev.is_wireless
-                            and prev_dev.connected
-                            and prev_dev.interface in candidate_names
-                        ):
-                            dev = devices.setdefault(
-                                prev_dev.mac,
-                                ConnectedDevice(
-                                    mac=prev_dev.mac,
-                                    ip=prev_dev.ip,
-                                    hostname=prev_dev.hostname,
-                                    connected=True,
-                                    is_wireless=True,
-                                    interface=wifi_iface.name or prev_dev.interface,
-                                    connection_type=prev_dev.connection_type,
-                                    signal=prev_dev.signal,
-                                    noise=prev_dev.noise,
-                                    rx_rate=prev_dev.rx_rate,
-                                    tx_rate=prev_dev.tx_rate,
-                                ),
-                            )
-                            dev.connected = True
-                            dev.is_wireless = True
-                            dev.interface = wifi_iface.name or prev_dev.interface
-                            dev.connection_type = (
-                                prev_dev.connection_type or dev.connection_type
-                            )
-                            dev.signal = prev_dev.signal or dev.signal
-                            dev.noise = prev_dev.noise or dev.noise
-                            dev.rx_rate = prev_dev.rx_rate or dev.rx_rate
-                            dev.tx_rate = prev_dev.tx_rate or dev.tx_rate
+                if found_assoc:
+                    scanned_wireless_candidates.update(c for c in candidate_names if c)
         elif wireless_data:
             await self._process_iwinfo_assoc(devices, wireless_data)
         else:
@@ -190,11 +156,27 @@ class UbusDevicesMixin:
                     except UbusError:
                         pass
 
-                if not found_hostapd and (
-                    self.coordinator
-                    and self.coordinator.data
-                    and self.coordinator.data.all_connected_devices
-                ):
+                if found_hostapd:
+                    scanned_wireless_candidates.update(c for c in candidate_names if c)
+
+            # Wireless coordinator fallback:
+            # If neither iwinfo nor hostapd succeeded for an interface (e.g. transient RPC failure),
+            # restore cached devices for that interface to avoid flapping.
+            if (
+                self.coordinator
+                and self.coordinator.data
+                and self.coordinator.data.all_connected_devices
+            ):
+                for wifi_iface in wireless_ifaces:
+                    candidate_names = [wifi_iface.name]
+                    if wifi_iface.ifname and wifi_iface.ifname not in candidate_names:
+                        candidate_names.append(wifi_iface.ifname)
+                    if wifi_iface.section and wifi_iface.section not in candidate_names:
+                        candidate_names.append(wifi_iface.section)
+
+                    if any(c in scanned_wireless_candidates for c in candidate_names if c):
+                        continue
+
                     for prev_dev in self.coordinator.data.all_connected_devices:
                         if (
                             prev_dev.is_wireless
@@ -237,7 +219,7 @@ class UbusDevicesMixin:
 
         # Always run fallback to ensure we catch any manually added or mesh interfaces
         if self.packages.wireless is not False:
-            await self._process_hostapd_fallback(devices)
+            await self._process_hostapd_fallback(devices, scanned_wireless_candidates)
 
         # Final cleanup/standardization
         for dev in devices.values():
@@ -630,7 +612,9 @@ class UbusDevicesMixin:
             pass
 
     async def _process_hostapd_fallback(
-        self, devices: dict[str, ConnectedDevice]
+        self,
+        devices: dict[str, ConnectedDevice],
+        scanned_candidates: set[str] | None = None,
     ) -> None:
         """Fallback: Discover and poll hostapd objects directly."""
         try:
@@ -654,7 +638,11 @@ class UbusDevicesMixin:
                         raise
                     except UbusError:
                         if (
-                            self.coordinator
+                            (
+                                scanned_candidates is None
+                                or ifname not in scanned_candidates
+                            )
+                            and self.coordinator
                             and self.coordinator.data
                             and self.coordinator.data.all_connected_devices
                         ):

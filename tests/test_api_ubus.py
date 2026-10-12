@@ -1437,3 +1437,240 @@ async def test_ubus_wireless_empty_ssid_does_not_restore_previous_clients(
 
         devices = await ubus_client.get_connected_devices()
         assert not any(d.mac == "aa:bb:cc:dd:ee:ff" and d.connected for d in devices)
+
+
+@pytest.mark.asyncio
+async def test_ubus_wireless_iwinfo_empty_hostapd_fails_does_not_restore_clients(
+    ubus_client: UbusClient,
+):
+    """Test that a confirmed empty iwinfo scan is not overridden by a failed hostapd call."""
+    from custom_components.openwrt.api.base import (
+        ConnectedDevice,
+        OpenWrtData,
+        WirelessInterface,
+    )
+    from custom_components.openwrt.api.ubus.exceptions import UbusError
+
+    ubus_client._session_id = "test_token"
+    ubus_client._connected = True
+    ubus_client.packages.wireless = True
+    ubus_client.trust_bridge_fdb = False
+    ubus_client._list_objects = AsyncMock(return_value=[])
+
+    prev_dev = ConnectedDevice(
+        mac="aa:bb:cc:dd:ee:ff",
+        connected=True,
+        is_wireless=True,
+        interface="wlan0",
+    )
+    ubus_client.coordinator = MagicMock()
+    ubus_client.coordinator.data = OpenWrtData(all_connected_devices=[prev_dev])
+
+    mock_ifaces = [
+        WirelessInterface(name="wlan0", ssid="TestSSID", band="2.4 GHz"),
+    ]
+
+    with (
+        patch.object(
+            ubus_client,
+            "get_wireless_interfaces",
+            new_callable=AsyncMock,
+            return_value=mock_ifaces,
+        ),
+        patch.object(ubus_client, "_call", new_callable=AsyncMock) as mock_call,
+        patch.object(
+            ubus_client, "get_dhcp_leases", new_callable=AsyncMock, return_value=[]
+        ),
+        patch.object(
+            ubus_client, "get_ip_neighbors", new_callable=AsyncMock, return_value=[]
+        ),
+    ):
+
+        def call_side_effect(object_name, method, params=None, *args, **kwargs):
+            if object_name == "iwinfo" and method == "assoclist":
+                return {"results": []}
+            if object_name.startswith("hostapd"):
+                raise UbusError("Object not found")
+            return {}
+
+        mock_call.side_effect = call_side_effect
+
+        devices = await ubus_client.get_connected_devices()
+        assert not any(d.mac == "aa:bb:cc:dd:ee:ff" and d.connected for d in devices)
+
+
+@pytest.mark.asyncio
+async def test_ubus_wireless_iwinfo_fails_hostapd_empty_does_not_restore_clients(
+    ubus_client: UbusClient,
+):
+    """Test that a confirmed empty hostapd scan is not overridden by a failed iwinfo call."""
+    from custom_components.openwrt.api.base import (
+        ConnectedDevice,
+        OpenWrtData,
+        WirelessInterface,
+    )
+    from custom_components.openwrt.api.ubus.exceptions import UbusError
+
+    ubus_client._session_id = "test_token"
+    ubus_client._connected = True
+    ubus_client.packages.wireless = True
+    ubus_client.trust_bridge_fdb = False
+    ubus_client._list_objects = AsyncMock(return_value=["hostapd.wlan0"])
+
+    prev_dev = ConnectedDevice(
+        mac="aa:bb:cc:dd:ee:ff",
+        connected=True,
+        is_wireless=True,
+        interface="wlan0",
+    )
+    ubus_client.coordinator = MagicMock()
+    ubus_client.coordinator.data = OpenWrtData(all_connected_devices=[prev_dev])
+
+    mock_ifaces = [
+        WirelessInterface(name="wlan0", ssid="TestSSID", band="2.4 GHz"),
+    ]
+
+    with (
+        patch.object(
+            ubus_client,
+            "get_wireless_interfaces",
+            new_callable=AsyncMock,
+            return_value=mock_ifaces,
+        ),
+        patch.object(ubus_client, "_call", new_callable=AsyncMock) as mock_call,
+        patch.object(
+            ubus_client, "get_dhcp_leases", new_callable=AsyncMock, return_value=[]
+        ),
+        patch.object(
+            ubus_client, "get_ip_neighbors", new_callable=AsyncMock, return_value=[]
+        ),
+    ):
+
+        def call_side_effect(object_name, method, params=None, *args, **kwargs):
+            if object_name == "iwinfo" and method == "assoclist":
+                raise UbusError("Command failed")
+            if object_name == "hostapd.wlan0" and method == "get_clients":
+                return {"clients": {}}
+            return {}
+
+        mock_call.side_effect = call_side_effect
+
+        devices = await ubus_client.get_connected_devices()
+        assert not any(d.mac == "aa:bb:cc:dd:ee:ff" and d.connected for d in devices)
+
+
+@pytest.mark.asyncio
+async def test_ubus_wireless_both_fail_restores_cached_clients(
+    ubus_client: UbusClient,
+):
+    """Test that when both iwinfo and hostapd fail, coordinator fallback preserves client state."""
+    from custom_components.openwrt.api.base import (
+        ConnectedDevice,
+        OpenWrtData,
+        WirelessInterface,
+    )
+    from custom_components.openwrt.api.ubus.exceptions import UbusError
+
+    ubus_client._session_id = "test_token"
+    ubus_client._connected = True
+    ubus_client.packages.wireless = True
+    ubus_client.trust_bridge_fdb = False
+    ubus_client._list_objects = AsyncMock(return_value=[])
+
+    prev_dev = ConnectedDevice(
+        mac="aa:bb:cc:dd:ee:ff",
+        connected=True,
+        is_wireless=True,
+        interface="wlan0",
+    )
+    ubus_client.coordinator = MagicMock()
+    ubus_client.coordinator.data = OpenWrtData(all_connected_devices=[prev_dev])
+
+    mock_ifaces = [
+        WirelessInterface(name="wlan0", ssid="TestSSID", band="2.4 GHz"),
+    ]
+
+    with (
+        patch.object(
+            ubus_client,
+            "get_wireless_interfaces",
+            new_callable=AsyncMock,
+            return_value=mock_ifaces,
+        ),
+        patch.object(ubus_client, "_call", new_callable=AsyncMock) as mock_call,
+        patch.object(
+            ubus_client, "get_dhcp_leases", new_callable=AsyncMock, return_value=[]
+        ),
+        patch.object(
+            ubus_client, "get_ip_neighbors", new_callable=AsyncMock, return_value=[]
+        ),
+    ):
+
+        def call_side_effect(object_name, method, params=None, *args, **kwargs):
+            if object_name == "iwinfo" and method == "assoclist":
+                raise UbusError("Command failed")
+            if object_name.startswith("hostapd"):
+                raise UbusError("Object not found")
+            return {}
+
+        mock_call.side_effect = call_side_effect
+
+        devices = await ubus_client.get_connected_devices()
+        assert any(d.mac == "aa:bb:cc:dd:ee:ff" and d.connected for d in devices)
+
+
+@pytest.mark.asyncio
+async def test_ubus_wireless_empty_candidate_continues_to_next_candidate(
+    ubus_client: UbusClient,
+):
+    """Test that an empty assoclist response on first candidate does not stop probing other candidates."""
+    from custom_components.openwrt.api.base import (
+        WirelessInterface,
+    )
+
+    ubus_client._session_id = "test_token"
+    ubus_client._connected = True
+    ubus_client.packages.wireless = True
+    ubus_client.trust_bridge_fdb = False
+    ubus_client._list_objects = AsyncMock(return_value=[])
+
+    mock_ifaces = [
+        WirelessInterface(
+            name="wlan0", ifname="phy0-ap0", ssid="TestSSID", band="2.4 GHz"
+        ),
+    ]
+
+    with (
+        patch.object(
+            ubus_client,
+            "get_wireless_interfaces",
+            new_callable=AsyncMock,
+            return_value=mock_ifaces,
+        ),
+        patch.object(ubus_client, "_call", new_callable=AsyncMock) as mock_call,
+        patch.object(
+            ubus_client, "get_dhcp_leases", new_callable=AsyncMock, return_value=[]
+        ),
+        patch.object(
+            ubus_client, "get_ip_neighbors", new_callable=AsyncMock, return_value=[]
+        ),
+    ):
+
+        def call_side_effect(object_name, method, params=None, *args, **kwargs):
+            if object_name == "iwinfo" and method == "assoclist":
+                device = params.get("device") if params else None
+                if device == "wlan0":
+                    return {"results": []}  # First candidate empty
+                if device == "phy0-ap0":
+                    return {
+                        "results": [
+                            {"mac": "11:22:33:44:55:66", "signal": -45, "noise": -90}
+                        ]
+                    }  # Second candidate has client
+            return {}
+
+        mock_call.side_effect = call_side_effect
+
+        devices = await ubus_client.get_connected_devices()
+        assert any(d.mac == "11:22:33:44:55:66" and d.connected for d in devices)
+
