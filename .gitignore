@@ -99,24 +99,7 @@ ipython_config.py
 #   install all needed dependencies.
 #Pipfile.lock
 
-# poetry
-#   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
-#   This is especially recommended for binary packages to ensure reproducibility, and is more
-#   commonly ignored for libraries.
-#   https://python-poetry.org/docs/basic-usage/#commit-your-poetrylock-file-to-version-control
-#poetry.lock
-
-# pdm
-#   Similar to Pipfile.lock, it is generally recommended to include pdm.lock in version control.
-#pdm.lock
-#   pdm stores project-wide configurations in .pdm.toml, but it is recommended to not include it
-#   in version control.
-#   https://pdm.fming.dev/latest/usage/project/#working-with-version-control
-.pdm.toml
-.pdm-python
-.pdm-build/
-
-# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow
 __pypackages__/
 
 # Celery stuff
@@ -128,7 +111,6 @@ celerybeat.pid
 
 # Environments
 .env
-.private-data-patterns
 .venv
 env/
 venv/
@@ -160,32 +142,38 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-# PyCharm
-#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
-#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
-#  and can be added to the global gitignore or merged into this file.  For a more nuclear
-#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
-.idea/
+# Development Files
+tests/tmp/
+config
+home-assistant.log
+megalinter-reports
+github_conf
+custom_components/openwrt/__pycache__
+/test_config/.storage
+test_config/home-assistant.log
+test_config/home-assistant.log*
+test_config/home-assistant_v2.db
+test_config/home-assistant_v2.db-shm
+test_config/home-assistant_v2.db-wal
+/test_config/blueprints
+test_config/.HA_VERSION
+test_config/.ha_run.lock
+debug_ubus.py
+debug_ubus_direct.py
+debug_openwrt_client.py
+test_config/custom_components
+test_config/openwrt
+.scratch
+.scratch*
+.coverage*
+*.coverage
+/test_config/custom_components/openwrt/__pycache__
+/test_config
 
-# VS Code
-.vscode/
-
-# OpenWrt specific
-.openwrt_build
-custom_components/openwrt/__pycache__/
-tests/test_live.py
-ruff_errors.json
-*debug*.txt
-*result*.txt
-/dummy_ha
-*.txt
-*output*.json
-test_live.py
-/scratch
-config_entry-openwrt-*.json
-fcntl.py
-resource.py
-
-.ruff_cache/
-*.pyc
+# macOS
 .DS_Store
+.claude/
+.opencode/
+AGENTS.md
+CLAUDE.md
+opencode.json
