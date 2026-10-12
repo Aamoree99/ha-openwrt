@@ -174,7 +174,9 @@ class UbusDevicesMixin:
                     if wifi_iface.section and wifi_iface.section not in candidate_names:
                         candidate_names.append(wifi_iface.section)
 
-                    if any(c in scanned_wireless_candidates for c in candidate_names if c):
+                    if any(
+                        c in scanned_wireless_candidates for c in candidate_names if c
+                    ):
                         continue
 
                     for prev_dev in self.coordinator.data.all_connected_devices:

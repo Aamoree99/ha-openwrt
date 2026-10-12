@@ -1673,4 +1673,3 @@ async def test_ubus_wireless_empty_candidate_continues_to_next_candidate(
 
         devices = await ubus_client.get_connected_devices()
         assert any(d.mac == "11:22:33:44:55:66" and d.connected for d in devices)
-
