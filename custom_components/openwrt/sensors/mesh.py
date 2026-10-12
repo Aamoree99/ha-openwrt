@@ -21,6 +21,15 @@ from .device import OpenWrtDeviceSensor
 _LOGGER = logging.getLogger(__name__)
 
 
+def _batman_tables_available(data: OpenWrtData) -> bool:
+    """Counts are only known after batctl listed its tables.
+
+    They are unavailable (not 0) with batctl-tiny and while the tables could
+    not be read, until a later poll reads them.
+    """
+    return data.batman_tables_supported is True
+
+
 def _get_batman_global_sensors(
     coordinator: OpenWrtDataCoordinator, entry: ConfigEntry
 ) -> list[OpenWrtSensorEntity]:
@@ -37,6 +46,7 @@ def _get_batman_global_sensors(
                 icon="mdi:transit-connection-variant",
                 entity_category=EntityCategory.DIAGNOSTIC,
                 value_fn=lambda data: len(data.batman_originators),
+                available_fn=_batman_tables_available,
             ),
         ),
         OpenWrtSensorEntity(
@@ -50,6 +60,7 @@ def _get_batman_global_sensors(
                 icon="mdi:router-wireless",
                 entity_category=EntityCategory.DIAGNOSTIC,
                 value_fn=lambda data: len(data.batman_neighbors),
+                available_fn=_batman_tables_available,
             ),
         ),
         OpenWrtSensorEntity(
@@ -63,6 +74,7 @@ def _get_batman_global_sensors(
                 icon="mdi:gateway",
                 entity_category=EntityCategory.DIAGNOSTIC,
                 value_fn=lambda data: len(data.batman_gateways),
+                available_fn=_batman_tables_available,
             ),
         ),
     ]
