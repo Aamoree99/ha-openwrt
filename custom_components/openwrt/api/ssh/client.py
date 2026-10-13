@@ -237,7 +237,8 @@ class SshClient(
             try:
                 return await self._connect_locked()
             except BaseException as err:
-                self._last_connect_error = err
+                if isinstance(err, Exception):
+                    self._last_connect_error = err
                 await self._disconnect_locked()
                 raise
 
